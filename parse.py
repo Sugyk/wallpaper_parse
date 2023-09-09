@@ -7,18 +7,41 @@ class Parse:
     def __init__(self) -> None:
         self.session = Session()
         self.url = 'https://www.wallpaperflare.com'
+        self.rest_path = 'search'
+        self.prompt = 'pixel art'
     
     def get_upload_path(self):
-        return askdirectory()
+        direct = askdirectory()
+        if not direct:
+            print('Aborting...')
+            return -1
+        return direct
 
-    def create_url(self, rest_path, **params):
+    def create_url(self, rest_path=None, **params):
+        if rest_path == None:
+            rest_path = self.rest_path
         result_url = ''.join([self.url, rest_path if rest_path[0] == '/' else '/' + rest_path, '?'])
         keys_array = []
         for key, value in params.items():
-            keys_array.append(f'{key}={value.replace(" ", "+")}')
+            keys_array.append(f'{key}={str(value).replace(" ", "+")}')
         result_url += '&'.join(keys_array)
-        print(result_url)
         return result_url
+    
+    def explore_last_page(self):
+        print(f'Exploring pages for the "{self.prompt}"...')
+        minn = 1
+        maxx = 100
+        while minn + 1 != maxx:
+            current = round(minn + ((maxx - minn) / 2) + 0.5)
+            request = self.session.get(self.create_url(wallpaper=self.prompt, page=current))
+            if request.status_code == 200:
+                minn = current
+            elif request.status_code == 404:
+                if maxx == 1:
+                    print(f'0 results for prompt "{self.prompt}"')
+                    return -1
+                maxx = current
+        return minn
 
     def get_pages_urls(self):
         request = self.session.get(self.url + '/search?wallpaper=pixel+art')
@@ -31,7 +54,10 @@ class Parse:
 
     def upload_images(self):
         count = 0
+        last_page = self.explore_last_page()
         path = self.get_upload_path()
+        if path == -1 or last_page == -1:
+            return -1
         print(f'Downloading into: {path}')
         urls = self.get_pages_urls()
         for url in urls:
