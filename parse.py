@@ -22,12 +22,15 @@ class Parse:
     def upload_images(self):
         count = 0
         path = self.get_upload_path()
-        for url in self.get_pages_urls():
+        print(f'Downloading into: {path}')
+        urls = self.get_pages_urls()
+        for url in urls:
             soup = bs(self.session.get(url).text, 'html.parser')
             image_url = soup.find('img', itemprop='contentUrl')['src']
             image = self.session.get(image_url).content
             with open(f'{path}/image_{count}.jpg', 'wb') as pict:
                 pict.write(image)
+            print(f'Image {count + 1}/{len(urls)} downloaded')
             count += 1
             
 parser = Parse()
