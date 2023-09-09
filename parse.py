@@ -6,12 +6,22 @@ from tkinter.filedialog import askdirectory
 class Parse:
     def __init__(self) -> None:
         self.session = Session()
+        self.url = 'https://www.wallpaperflare.com'
     
     def get_upload_path(self):
         return askdirectory()
 
+    def create_url(self, rest_path, **params):
+        result_url = ''.join([self.url, rest_path if rest_path[0] == '/' else '/' + rest_path, '?'])
+        keys_array = []
+        for key, value in params.items():
+            keys_array.append(f'{key}={value.replace(" ", "+")}')
+        result_url += '&'.join(keys_array)
+        print(result_url)
+        return result_url
+
     def get_pages_urls(self):
-        request = self.session.get('https://www.wallpaperflare.com/search?wallpaper=pixel+art')
+        request = self.session.get(self.url + '/search?wallpaper=pixel+art')
         soup = bs(request.text, 'html.parser')
         load_urls = []
         tags = soup.find_all('a', itemprop='url')
