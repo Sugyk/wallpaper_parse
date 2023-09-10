@@ -104,14 +104,15 @@ class Parse:
         count = 0
         print(f'Downloading into: {self.upload_path}')
         urls = self.get_pages_urls()
+        filename = '-'.join(self.prompt.split())
         for url in urls:
             soup = bs(self.session.get(url).text, 'html.parser')
             image_url = soup.find('img', itemprop='contentUrl')['src']
             image = self.session.get(image_url).content
-            with open(f'{self.upload_path}/image_{count}.jpg', 'wb') as pict:
+            with open(f'{self.upload_path}/{filename}_p{self.page}_{count}.jpg', 'wb') as pict:
                 pict.write(image)
             print(f'Image {count + 1}/{len(urls)} downloaded')
             count += 1
-            
+
 parser = Parse()
 parser.upload_images()
