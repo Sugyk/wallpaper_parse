@@ -2,6 +2,7 @@ from requests import Session
 from bs4 import BeautifulSoup as bs
 from tkinter.filedialog import askdirectory
 from tkinter import Tk
+import threading
 
 
 class Parse:
@@ -94,25 +95,36 @@ class Parse:
         load_urls = []
         tags = soup.find_all('a', itemprop='url')
         for tag in tags:
-            load_urls.append(tag['href'] + '/download')
-        return load_urls
+            soup = bs(self.session.get(tag['href'] + '/download').text, 'html.parser')
+            load_urls.append(soup.find('img', itemprop='contentUrl')['src'])
+        self.load_urls = load_urls
+
+    def uploading(self, start, end):
+        print(self, start, end)
+        filename = '-'.join(self.prompt.split())
+        for url_pos in range(start, end):
+            image = self.session.get(self.load_urls[url_pos]).content
+            with open(f'{self.upload_path}/{filename}_p{self.page}_{url_pos}.jpg', 'wb') as pict:
+                pict.write(image)
+            print(f'Image {self.download}/{len(self.load_urls)} downloaded')
+            self.download += 1
 
     def upload_images(self):
         if self.configure() == -1:
             print('Aborting...')
             return -1
-        count = 0
         print(f'Downloading into: {self.upload_path}')
-        urls = self.get_pages_urls()
-        filename = '-'.join(self.prompt.split())
-        for url in urls:
-            soup = bs(self.session.get(url).text, 'html.parser')
-            image_url = soup.find('img', itemprop='contentUrl')['src']
-            image = self.session.get(image_url).content
-            with open(f'{self.upload_path}/{filename}_p{self.page}_{count}.jpg', 'wb') as pict:
-                pict.write(image)
-            print(f'Image {count + 1}/{len(urls)} downloaded')
-            count += 1
+        print('Getting urls...')
+        self.get_pages_urls()
+        page_length = len(self.load_urls)
+        threads_number = 5
+        ranges = [[i * page_length // threads_number, (i + 1) * page_length // threads_number] for i in range(threads_number)]
+        ranges[-1][-1] += page_length % threads_number
+        self.download = 1
+        for i in range(threads_number):
+            threading.Thread(group=None, target=self.uploading, args=(ranges[i])).start()
+        threading.Thread(group=None, target=lambda: input, args=(), daemon=True).start()
+        
 
 parser = Parse()
 parser.upload_images()
