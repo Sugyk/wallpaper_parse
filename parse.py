@@ -89,24 +89,39 @@ class Parse:
                 break
         return 0
 
+    def tread_get_urls(self, start, end):
+        print(self, start, end)
+        for tag in range(start, end):
+            soup = bs(self.session.get(self.tags[tag]['href'] + '/download').text, 'html.parser')
+            self.urls[tag] = soup.find('img', itemprop='contentUrl')['src']
+
     def get_pages_urls(self):
         request = self.session.get(self.create_url(self.rest_path, wallpaper=self.prompt, page=self.page))
         soup = bs(request.text, 'html.parser')
-        load_urls = []
-        tags = soup.find_all('a', itemprop='url')
-        for tag in tags:
-            soup = bs(self.session.get(tag['href'] + '/download').text, 'html.parser')
-            load_urls.append(soup.find('img', itemprop='contentUrl')['src'])
-        self.load_urls = load_urls
+        self.tags = soup.find_all('a', itemprop='url')
+        self.urls = [None] * len(self.tags)
+        len_tags = len(self.tags)
+        threads_number = 5
+        ranges = [[i * len_tags // threads_number, (i + 1) * len_tags // threads_number] for i in range(threads_number)]
+        ranges[-1][-1] += len_tags % threads_number
+        threads = []
+        for i in range(threads_number):
+            threads.append(threading.Thread(target=self.tread_get_urls, args=(ranges[i])))
+        for i in range(threads_number):
+            threads[i].start()
+        for i in range(threads_number):
+            threads[i].join()
+
+
 
     def uploading(self, start, end):
         print(self, start, end)
         filename = '-'.join(self.prompt.split())
         for url_pos in range(start, end):
-            image = self.session.get(self.load_urls[url_pos]).content
+            image = self.session.get(self.urls[url_pos]).content
             with open(f'{self.upload_path}/{filename}_p{self.page}_{url_pos}.jpg', 'wb') as pict:
                 pict.write(image)
-            print(f'Image {self.download}/{len(self.load_urls)} downloaded')
+            print(f'Image {self.download}/{len(self.urls)} downloaded')
             self.download += 1
 
     def upload_images(self):
@@ -116,7 +131,7 @@ class Parse:
         print(f'Downloading into: {self.upload_path}')
         print('Getting urls...')
         self.get_pages_urls()
-        page_length = len(self.load_urls)
+        page_length = len(self.urls)
         threads_number = 5
         ranges = [[i * page_length // threads_number, (i + 1) * page_length // threads_number] for i in range(threads_number)]
         ranges[-1][-1] += page_length % threads_number
@@ -125,6 +140,6 @@ class Parse:
             threading.Thread(group=None, target=self.uploading, args=(ranges[i])).start()
         threading.Thread(group=None, target=lambda: input, args=(), daemon=True).start()
         
-
-parser = Parse()
-parser.upload_images()
+if __name__ == '__main__':
+    parser = Parse()
+    parser.upload_images()
