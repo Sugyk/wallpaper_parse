@@ -6,8 +6,9 @@ import threading
 
 
 class Parse:
-    def __init__(self) -> None:
+    def __init__(self, threads=1) -> None:
         self.session = Session()
+        self.threads_number = threads
         self.url = 'https://www.wallpaperflare.com'
         self.rest_path = 'search'
         self.prompt = 'pixel art'
@@ -36,7 +37,7 @@ class Parse:
     
     def explore_last_page(self):
         print(f'Exploring pages for the "{self.prompt}"...')
-        minn = 1
+        minn = 0
         maxx = 100
         request = self.session.get(self.create_url(wallpaper=self.prompt))
         if len(request.history):
@@ -68,9 +69,11 @@ class Parse:
             last_page = self.explore_last_page()
             if last_page == -1:
                 print('Try other prompts(example: pixel art): ', end='')
-        print(f'Choose the page 1-{last_page} (example: 3-15): ', end='')
+        print(f'Choose the page 1-{last_page if last_page != 0 else 1} (example: 3-15): ', end='')
         while True:
             page_str = input().split('-')
+            if last_page == 0 and page_str == ['1', '1']:
+                break
             if len(page_str) == 2:
                 for i in range(2):
                     if page_str[i].isdigit() and 1 <= int(page_str[i]) <= last_page:
@@ -82,6 +85,9 @@ class Parse:
                         break
             print(f'Incorrect input (example: 3-15): ')
         self.start, self.end = page_str
+        if last_page == 0 and page_str == ['1', '1']:
+            self.start, self.end = [0, 0]
+
         while True:
             path = self.get_upload_path()
             if path == -1:
@@ -104,15 +110,15 @@ class Parse:
         self.tags = soup.find_all('a', itemprop='url')
         self.urls = [None] * len(self.tags)
         len_tags = len(self.tags)
-        threads_number = 5
-        ranges = [[i * len_tags // threads_number, (i + 1) * len_tags // threads_number] for i in range(threads_number)]
-        ranges[-1][-1] += len_tags % threads_number
+        print(len_tags)
+        ranges = [[i * len_tags // self.threads_number, (i + 1) * len_tags // self.threads_number] for i in range(self.threads_number)]
+        ranges[-1][-1] += len_tags % self.threads_number
         threads = []
-        for i in range(threads_number):
+        for i in range(self.threads_number):
             threads.append(threading.Thread(target=self.tread_get_urls, args=(ranges[i])))
-        for i in range(threads_number):
+        for i in range(self.threads_number):
             threads[i].start()
-        for i in range(threads_number):
+        for i in range(self.threads_number):
             threads[i].join()
 
     def uploading(self, start, end):
@@ -128,17 +134,16 @@ class Parse:
         print('Getting urls...')
         self.get_pages_urls()
         page_length = len(self.urls)
-        threads_number = 5
-        ranges = [[i * page_length // threads_number, (i + 1) * page_length // threads_number] for i in range(threads_number)]
-        ranges[-1][-1] += page_length % threads_number
+        ranges = [[i * page_length // self.threads_number, (i + 1) * page_length // self.threads_number] for i in range(self.threads_number)]
+        ranges[-1][-1] += page_length % self.threads_number
         self.download = 1
         threads = []
-        for i in range(threads_number):
+        for i in range(self.threads_number):
             threads.append(threading.Thread(target=self.uploading, args=(ranges[i])))
-        for i in range(threads_number):
+        for i in range(self.threads_number):
             print(f'Thread {i} is running!')
             threads[i].start()
-        for i in range(threads_number):
+        for i in range(self.threads_number):
             threads[i].join()
     
     def upload(self):
