@@ -14,6 +14,9 @@ class Parse:
         self.prompt = 'pixel art'
         self.upload_path = '.'
         self.page = 1
+
+    def set_threads(self, threads):
+        self.threads_number = threads
     
     def get_upload_path(self):
         root = Tk()
