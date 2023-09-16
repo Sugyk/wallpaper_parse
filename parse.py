@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup as bs
 from tkinter.filedialog import askdirectory
 from tkinter import Tk
 import threading
+import zipfile
 
 
 class Parse:
@@ -124,15 +125,16 @@ class Parse:
         for i in range(self.threads_number):
             threads[i].join()
 
-    def uploading(self, start, end):
-        filename = '-'.join(self.prompt.split())
-        for url_pos in range(start, end):
-            image = self.session.get(self.urls[url_pos]).content
-            with open(f'{self.upload_path}/{filename}_p{self.page}_{url_pos}.jpg', 'wb') as pict:
-                pict.write(image)
-            print(f'Page {self.page}: Image {self.download}/{len(self.urls)} downloaded')
-            self.download += 1
-
+    def zip_uploading(self, start, end):
+        core_name = '-'.join(self.prompt.split())
+        with zipfile.ZipFile(f'{self.upload_path}/{core_name}.zip', 'w') as pict:
+            for url_pos in range(start, end):
+                image = self.session.get(self.urls[url_pos]).content
+                file = f'{core_name}_p{self.page}_{url_pos}.jpg'
+                pict.writestr(file, image)
+                print(f'Page {self.page}: Image {self.download}/{len(self.urls)} downloaded')
+                self.download += 1
+    
     def upload_page(self):
         print('Getting urls...')
         self.get_pages_urls()
@@ -142,7 +144,7 @@ class Parse:
         self.download = 1
         threads = []
         for i in range(self.threads_number):
-            threads.append(threading.Thread(target=self.uploading, args=(ranges[i])))
+            threads.append(threading.Thread(target=self.zip_uploading, args=(ranges[i])))
         for i in range(self.threads_number):
             print(f'Thread {i} is running!')
             threads[i].start()
@@ -153,10 +155,12 @@ class Parse:
         if self.configure() == -1:
             print('Aborting...')
             return -1
-        print(f'Downloading into: {self.upload_path}')
+        zip_path = {self.upload_path}/{self.prompt}.zip
+        print(f'Downloading into: {zip_path}')
         for i in range(self.start, self.end + 1):
             self.page = i
             self.upload_page()
+        return zip_path
         
 if __name__ == '__main__':
     parser = Parse()
